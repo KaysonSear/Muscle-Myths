@@ -41,6 +41,20 @@
 
 ## Development Log
 
+### 2025-11-30 - Issue #1 ✅
+- **Commit**: `8ae6e4b`
+- **变更摘要**: 安装 SRS v1.1 要求的缺失依赖
+  - @tanstack/react-query ^5.90.11
+  - @tanstack/react-table ^8.21.3
+  - @dnd-kit/core ^6.3.1
+  - @dnd-kit/sortable ^10.0.0
+  - recharts ^3.5.1
+  - xlsx ^0.18.5
+  - framer-motion ^12.23.24
+- **下一步计划**: Issue #2 - 移除版本前缀，使用精确版本号
+
+---
+
 ### [待填写] - Issue #X
 - **Commit**: `xxxxxxx`
 - **变更摘要**: 
