@@ -77,9 +77,11 @@ export default function EventDetailPage() {
           <Button onClick={generateLineup} className="rounded-none bg-secondary hover:bg-secondary/90">
             生成秩序表
           </Button>
-          <Button className="rounded-none bg-primary hover:bg-primary/90">
-            <Play className="mr-2 h-4 w-4" /> 开始计分
-          </Button>
+          <Link href={`/dashboard/events/${event._id}/scoring`}>
+            <Button className="rounded-none bg-primary hover:bg-primary/90">
+              <Play className="mr-2 h-4 w-4" /> 开始计分
+            </Button>
+          </Link>
         </div>
       </div>
 
