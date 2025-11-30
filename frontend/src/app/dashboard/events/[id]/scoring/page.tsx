@@ -14,9 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { ArrowLeft, Trophy, Save, Users, Medal, Crown, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Trophy, Save, Users, Medal, Crown, AlertTriangle, Settings2, UserCheck } from 'lucide-react';
 
 interface Athlete {
   _id: string;
@@ -65,6 +75,11 @@ export default function ScoringPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [judgeCount, setJudgeCount] = useState<number>(5);
+  const [judgeNames, setJudgeNames] = useState<string[]>(['', '', '', '', '', '', '']);
+  const [tempJudgeCount, setTempJudgeCount] = useState<number>(5);
+  const [tempJudgeNames, setTempJudgeNames] = useState<string[]>(['', '', '', '', '', '', '']);
+  const [judgeDialogOpen, setJudgeDialogOpen] = useState(false);
+  const [isJudgeConfigured, setIsJudgeConfigured] = useState(false);
   const [scores, setScores] = useState<CategoryScores>({});
   const [existingScores, setExistingScores] = useState<Score[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,6 +324,34 @@ export default function ScoringPage() {
 
   const tiedAthletes = detectTies();
 
+  // 打开对话框时同步临时状态
+  const openJudgeDialog = () => {
+    setTempJudgeCount(judgeCount);
+    setTempJudgeNames([...judgeNames]);
+    setJudgeDialogOpen(true);
+  };
+
+  // 确认裁判设置
+  const confirmJudgeSettings = () => {
+    setJudgeCount(tempJudgeCount);
+    setJudgeNames([...tempJudgeNames]);
+    setIsJudgeConfigured(true);
+    setJudgeDialogOpen(false);
+    toast.success(`已设置 ${tempJudgeCount} 位裁判`);
+  };
+
+  // 更新临时裁判姓名
+  const updateTempJudgeName = (index: number, name: string) => {
+    const newNames = [...tempJudgeNames];
+    newNames[index] = name;
+    setTempJudgeNames(newNames);
+  };
+
+  // 获取裁判显示名称
+  const getJudgeName = (index: number) => {
+    return judgeNames[index] || `裁判 ${index + 1}`;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -363,21 +406,93 @@ export default function ScoringPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">裁判人数:</span>
-            <Select
-              value={judgeCount.toString()}
-              onValueChange={(v) => setJudgeCount(parseInt(v))}
-            >
-              <SelectTrigger className="w-20 rounded-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="7">7</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* 裁判设置对话框 */}
+          <Dialog open={judgeDialogOpen} onOpenChange={setJudgeDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={openJudgeDialog}
+                className={`rounded-none gap-2 ${
+                  isJudgeConfigured
+                    ? 'border-green-600 text-green-700 bg-green-50'
+                    : 'border-black'
+                }`}
+              >
+                <Settings2 className="h-4 w-4" />
+                {isJudgeConfigured ? `${judgeCount} 位裁判` : '设置裁判'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md rounded-none border-2 border-black">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                  <UserCheck className="h-5 w-5" />
+                  裁判人数设置
+                </DialogTitle>
+                <DialogDescription>
+                  设置本场比赛的裁判人数和姓名（可选）
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* 裁判人数选择 */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold">裁判人数</Label>
+                  <Select
+                    value={tempJudgeCount.toString()}
+                    onValueChange={(v) => setTempJudgeCount(parseInt(v))}
+                  >
+                    <SelectTrigger className="w-full rounded-none border-black">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 位裁判</SelectItem>
+                      <SelectItem value="7">7 位裁判</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    * 5位或7位裁判时，将自动去掉最高分和最低分
+                  </p>
+                </div>
+
+                {/* 裁判姓名输入 */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-bold">裁判姓名（可选）</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Array.from({ length: tempJudgeCount }, (_, i) => (
+                      <div key={i} className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          裁判 {i + 1}
+                        </Label>
+                        <Input
+                          placeholder={`裁判 ${i + 1}`}
+                          value={tempJudgeNames[i] || ''}
+                          onChange={(e) => updateTempJudgeName(i, e.target.value)}
+                          className="rounded-none border-black/30"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setJudgeDialogOpen(false)}
+                  className="rounded-none border-black"
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={confirmJudgeSettings}
+                  className="rounded-none bg-black text-white hover:bg-black/90"
+                >
+                  确认设置
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button
             onClick={saveScores}
             disabled={saving}
@@ -436,8 +551,9 @@ export default function ScoringPage() {
                     <th
                       key={i}
                       className="text-center p-3 font-bold text-sm min-w-[80px]"
+                      title={judgeNames[i] ? `裁判 ${i + 1}: ${judgeNames[i]}` : undefined}
                     >
-                      裁判 {i + 1}
+                      {getJudgeName(i)}
                     </th>
                   ))}
                   <th className="text-center p-3 font-bold text-sm min-w-[100px] bg-primary/10">
