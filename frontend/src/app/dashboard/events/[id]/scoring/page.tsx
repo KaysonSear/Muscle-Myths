@@ -26,7 +26,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { ArrowLeft, Trophy, Save, Users, Medal, Crown, AlertTriangle, Settings2, UserCheck } from 'lucide-react';
+import { ArrowLeft, Trophy, Save, Users, Medal, Crown, AlertTriangle, Settings2, UserCheck, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Athlete {
   _id: string;
@@ -377,6 +378,140 @@ export default function ScoringPage() {
     return judgeNames[index] || `裁判 ${index + 1}`;
   };
 
+  // 导出当前组别计分结果为Excel
+  const exportCurrentCategoryToExcel = () => {
+    if (currentAthletes.length === 0) {
+      toast.error('当前组别没有选手');
+      return;
+    }
+
+    const data = currentAthletes
+      .map((item) => {
+        const athleteScore = scores[item.athlete_id._id] || {
+          judge_scores: Array(judgeCount).fill(0),
+          total_score: 0,
+        };
+        const athleteRank = ranks[item.athlete_id._id];
+        const excludedIndices = getExcludedScoreIndices(athleteScore.judge_scores);
+
+        const row: Record<string, string | number> = {
+          '排名': athleteRank?.rank || '-',
+          '号码牌': item.athlete_id.bib_number,
+          '选手姓名': item.athlete_id.name,
+        };
+
+        // 添加各裁判分数
+        for (let i = 0; i < judgeCount; i++) {
+          const score = athleteScore.judge_scores[i] || 0;
+          const isExcluded = excludedIndices && (excludedIndices.minIndex === i || excludedIndices.maxIndex === i);
+          row[getJudgeName(i)] = score;
+          if (isExcluded && score > 0) {
+            row[`${getJudgeName(i)}(去除)`] = excludedIndices.minIndex === i ? '最低' : '最高';
+          }
+        }
+
+        row['总分'] = athleteScore.total_score;
+        row['是否冠军'] = athleteRank?.isChampion ? '是' : '';
+
+        return row;
+      })
+      .sort((a, b) => {
+        const rankA = typeof a['排名'] === 'number' ? a['排名'] : 999;
+        const rankB = typeof b['排名'] === 'number' ? b['排名'] : 999;
+        return rankA - rankB;
+      });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, selectedCategory);
+
+    // 设置列宽
+    ws['!cols'] = [
+      { wch: 8 },  // 排名
+      { wch: 10 }, // 号码牌
+      { wch: 15 }, // 选手姓名
+      ...Array(judgeCount).fill({ wch: 10 }), // 裁判分数
+      { wch: 10 }, // 总分
+      { wch: 10 }, // 是否冠军
+    ];
+
+    const fileName = `${event?.name || '计分结果'}_${selectedCategory}_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success(`已导出: ${fileName}`);
+  };
+
+  // 导出所有组别计分结果为Excel
+  const exportAllCategoriesToExcel = () => {
+    if (categories.length === 0) {
+      toast.error('没有可导出的组别');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    categories.forEach((category) => {
+      const categoryAthletes = lineup.filter((item) => item.category === category);
+      
+      // 计算该组别的排名
+      const categoryRanks: { [key: string]: { rank: number; isChampion: boolean } } = {};
+      const athletesWithScores = categoryAthletes
+        .map((item) => ({
+          athleteId: item.athlete_id._id,
+          totalScore: scores[item.athlete_id._id]?.total_score || 0,
+          isRetired: scores[item.athlete_id._id]?.is_retired || false,
+        }))
+        .filter((a) => !a.isRetired && a.totalScore > 0)
+        .sort((a, b) => a.totalScore - b.totalScore);
+
+      athletesWithScores.forEach((a, index) => {
+        categoryRanks[a.athleteId] = {
+          rank: index + 1,
+          isChampion: index === 0,
+        };
+      });
+
+      const data = categoryAthletes
+        .map((item) => {
+          const athleteScore = scores[item.athlete_id._id] || {
+            judge_scores: Array(judgeCount).fill(0),
+            total_score: 0,
+          };
+          const athleteRank = categoryRanks[item.athlete_id._id];
+
+          const row: Record<string, string | number> = {
+            '排名': athleteRank?.rank || '-',
+            '号码牌': item.athlete_id.bib_number,
+            '选手姓名': item.athlete_id.name,
+          };
+
+          for (let i = 0; i < judgeCount; i++) {
+            row[getJudgeName(i)] = athleteScore.judge_scores[i] || 0;
+          }
+
+          row['总分'] = athleteScore.total_score;
+          row['是否冠军'] = athleteRank?.isChampion ? '是' : '';
+
+          return row;
+        })
+        .sort((a, b) => {
+          const rankA = typeof a['排名'] === 'number' ? a['排名'] : 999;
+          const rankB = typeof b['排名'] === 'number' ? b['排名'] : 999;
+          return rankA - rankB;
+        });
+
+      if (data.length > 0) {
+        const ws = XLSX.utils.json_to_sheet(data);
+        // 清理sheet名称中的非法字符
+        const sheetName = category.replace(/[\\/?*[\]]/g, '_').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+    });
+
+    const fileName = `${event?.name || '计分结果'}_全部组别_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success(`已导出: ${fileName}`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -526,6 +661,64 @@ export default function ScoringPage() {
             <Save className="mr-2 h-4 w-4" />
             {saving ? '保存中...' : '保存分数'}
           </Button>
+
+          {/* 导出按钮 */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="rounded-none border-black gap-2"
+              >
+                <Download className="h-4 w-4" />
+                导出
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm rounded-none border-2 border-black">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  导出计分结果
+                </DialogTitle>
+                <DialogDescription>
+                  选择导出范围，将计分结果导出为 Excel 文件
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-4">
+                <Button
+                  onClick={exportCurrentCategoryToExcel}
+                  variant="outline"
+                  className="w-full rounded-none border-black justify-start gap-3 h-auto py-3"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold">导出当前组别</p>
+                    <p className="text-xs text-muted-foreground">
+                      仅导出 "{selectedCategory}" 的计分结果
+                    </p>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={exportAllCategoriesToExcel}
+                  variant="outline"
+                  className="w-full rounded-none border-black justify-start gap-3 h-auto py-3"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
+                    <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold">导出全部组别</p>
+                    <p className="text-xs text-muted-foreground">
+                      导出所有 {categories.length} 个组别（多工作表）
+                    </p>
+                  </div>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
