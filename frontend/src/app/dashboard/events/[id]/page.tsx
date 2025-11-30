@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Calendar, MapPin, Trophy, Users, Play, ListOrdered } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Users, Play, ListOrdered, Edit, User } from 'lucide-react';
+import Image from 'next/image';
 
 export default function EventDetailPage() {
   const { id } = useParams();
@@ -69,6 +70,11 @@ export default function EventDetailPage() {
         </div>
         
         <div className="flex flex-wrap gap-3">
+          <Link href={`/dashboard/events/${event._id}/edit`}>
+            <Button variant="outline" className="rounded-none border-black hover:bg-black hover:text-white">
+              <Edit className="mr-2 h-4 w-4" /> 编辑赛事
+            </Button>
+          </Link>
           <Link href={`/dashboard/registrations/new?eventId=${event._id}`}>
              <Button variant="outline" className="rounded-none border-black hover:bg-black hover:text-white">
                <Users className="mr-2 h-4 w-4" /> 添加报名
@@ -136,28 +142,81 @@ export default function EventDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Stats Card (Placeholder) */}
-        <Card className="border-2 border-black rounded-none">
-          <CardHeader className="bg-muted/20 border-b border-black/10">
-            <CardTitle>赛事统计</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-6">
-              <div className="flex justify-between items-end">
-                <span className="text-sm font-medium text-muted-foreground">报名人数</span>
-                <span className="text-3xl font-black">0</span>
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Cover Image */}
+          {event.cover_image && (
+            <Card className="border-2 border-black rounded-none overflow-hidden">
+              <div className="relative aspect-video">
+                <Image
+                  src={`http://localhost:4000${event.cover_image}`}
+                  alt={event.name}
+                  fill
+                  className="object-cover"
+                />
               </div>
-              <div className="flex justify-between items-end">
-                <span className="text-sm font-medium text-muted-foreground">总人次</span>
-                <span className="text-3xl font-black">0</span>
+            </Card>
+          )}
+
+          {/* Stats Card */}
+          <Card className="border-2 border-black rounded-none">
+            <CardHeader className="bg-muted/20 border-b border-black/10">
+              <CardTitle>赛事统计</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-6">
+                <div className="flex justify-between items-end">
+                  <span className="text-sm font-medium text-muted-foreground">报名人数</span>
+                  <span className="text-3xl font-black">0</span>
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-sm font-medium text-muted-foreground">总人次</span>
+                  <span className="text-3xl font-black">0</span>
+                </div>
+                <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary w-0" />
+                </div>
+                <p className="text-xs text-muted-foreground text-center pt-2">暂无报名数据</p>
               </div>
-              <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
-                <div className="h-full bg-primary w-0" />
-              </div>
-              <p className="text-xs text-muted-foreground text-center pt-2">暂无报名数据</p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Judges Card */}
+          {event.judges && event.judges.length > 0 && (
+            <Card className="border-2 border-black rounded-none">
+              <CardHeader className="bg-muted/20 border-b border-black/10">
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" /> 裁判团队
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  {event.judges.map((judge: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                        {judge.avatar ? (
+                          <Image
+                            src={`http://localhost:4000${judge.avatar}`}
+                            alt={judge.name}
+                            width={40}
+                            height={40}
+                            className="object-cover"
+                          />
+                        ) : (
+                          <User className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium">{judge.name}</div>
+                        <div className="text-xs text-muted-foreground">{judge.title || '裁判'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
