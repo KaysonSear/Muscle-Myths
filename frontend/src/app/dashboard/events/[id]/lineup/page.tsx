@@ -17,7 +17,18 @@ import {
   RefreshCw,
   ListOrdered,
   AlertTriangle,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 import {
   DndContext,
@@ -286,6 +297,94 @@ export default function LineupPage() {
     }
   };
 
+  // 导出当前组别秩序表为Excel
+  const exportCurrentCategoryToExcel = () => {
+    const dataToExport = selectedCategory === 'all' ? lineup : filteredLineup;
+    
+    if (dataToExport.length === 0) {
+      toast.error('没有可导出的数据');
+      return;
+    }
+
+    const data = dataToExport.map((item, index) => ({
+      '序号': index + 1,
+      '号码牌': item.athlete_id.bib_number,
+      '选手姓名': item.athlete_id.name,
+      '性别': item.athlete_id.gender === 'male' ? '男' : '女',
+      '组别': item.category,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    
+    const sheetName = selectedCategory === 'all' ? '全部组别' : selectedCategory.replace(/[\\/?*[\]]/g, '_').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    // 设置列宽
+    ws['!cols'] = [
+      { wch: 8 },  // 序号
+      { wch: 10 }, // 号码牌
+      { wch: 15 }, // 选手姓名
+      { wch: 6 },  // 性别
+      { wch: 25 }, // 组别
+    ];
+
+    const categoryName = selectedCategory === 'all' ? '全部组别' : selectedCategory;
+    const fileName = `${event?.name || '秩序表'}_${categoryName}_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success(`已导出: ${fileName}`);
+  };
+
+  // 导出全部组别秩序表为Excel（每个组别一个工作表）
+  const exportAllCategoriesToExcel = () => {
+    if (lineup.length === 0) {
+      toast.error('没有可导出的数据');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // 首先添加汇总表
+    const summaryData = lineup.map((item, index) => ({
+      '总序号': index + 1,
+      '号码牌': item.athlete_id.bib_number,
+      '选手姓名': item.athlete_id.name,
+      '性别': item.athlete_id.gender === 'male' ? '男' : '女',
+      '组别': item.category,
+    }));
+    
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    summaryWs['!cols'] = [
+      { wch: 8 }, { wch: 10 }, { wch: 15 }, { wch: 6 }, { wch: 25 },
+    ];
+    XLSX.utils.book_append_sheet(wb, summaryWs, '汇总');
+
+    // 然后按组别分别导出
+    categories.forEach((category) => {
+      const categoryLineup = lineup.filter((item) => item.category === category);
+      
+      const data = categoryLineup.map((item, index) => ({
+        '序号': index + 1,
+        '号码牌': item.athlete_id.bib_number,
+        '选手姓名': item.athlete_id.name,
+        '性别': item.athlete_id.gender === 'male' ? '男' : '女',
+      }));
+
+      if (data.length > 0) {
+        const ws = XLSX.utils.json_to_sheet(data);
+        ws['!cols'] = [
+          { wch: 8 }, { wch: 10 }, { wch: 15 }, { wch: 6 },
+        ];
+        const sheetName = category.replace(/[\\/?*[\]]/g, '_').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+    });
+
+    const fileName = `${event?.name || '秩序表'}_分组明细_${new Date().toLocaleDateString('zh-CN')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success(`已导出: ${fileName}`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -368,6 +467,68 @@ export default function LineupPage() {
             <Save className="h-4 w-4" />
             {saving ? '保存中...' : hasChanges ? '保存更改' : '已保存'}
           </Button>
+
+          {/* 导出按钮 */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="rounded-none border-black gap-2"
+              >
+                <Download className="h-4 w-4" />
+                导出
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm rounded-none border-2 border-black">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  导出秩序表
+                </DialogTitle>
+                <DialogDescription>
+                  选择导出范围，将秩序表导出为 Excel 文件
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-4">
+                <Button
+                  onClick={exportCurrentCategoryToExcel}
+                  variant="outline"
+                  className="w-full rounded-none border-black justify-start gap-3 h-auto py-3"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold">
+                      导出{selectedCategory === 'all' ? '全部' : '当前组别'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedCategory === 'all'
+                        ? `导出全部 ${lineup.length} 条记录`
+                        : `仅导出 "${selectedCategory}" (${filteredLineup.length} 条)`}
+                    </p>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={exportAllCategoriesToExcel}
+                  variant="outline"
+                  className="w-full rounded-none border-black justify-start gap-3 h-auto py-3"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
+                    <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold">分组明细导出</p>
+                    <p className="text-xs text-muted-foreground">
+                      汇总 + {categories.length} 个组别工作表
+                    </p>
+                  </div>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
