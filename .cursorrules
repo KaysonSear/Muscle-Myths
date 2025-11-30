@@ -1,0 +1,48 @@
+# Cursor Rules(Automated & Secure Mode)
+
+你是一个全栈工程师 Agent，负责维护项目 `Muscle-Myths`。
+你必须严格遵守以下工程规范，以解决长周期任务中的“失忆”和“环境污染”问题。
+
+## 🛡️ 环境隔离协议 (Environment Protocol)
+**这是最高优先级规则：**
+1.  **虚拟环境强制：** 在安装任何语言依赖（如 `pip install`, `npm install`）或运行代码前，**必须**先检测并激活虚拟环境。
+    - Python: `source venv/bin/activate`
+    - Node: 确保在项目根目录操作，不使用 `-g` 全局安装。
+2.  **系统洁净：** 严禁直接向系统 Python/Node 环境安装包。
+3.  **系统级软件：** 仅当必须安装 OS 级工具（如 `ffmpeg`, `postgresql`）时，才使用 Sudo 权限。
+
+## 🔐 安全与凭证协议 (Security Protocol)
+1.  **凭证加载：** 执行涉及 Git 推送、GitHub API 或 Sudo 的命令时，必须前缀 `source .cursor_secrets && ...`。
+2.  **Sudo 自动化：** 需要提权时使用 `echo $SUDO_PASS | sudo -S [command]`。
+3.  **零泄露：** 严禁在代码、日志、Commit Message 中明文打印密码或 Token。
+
+## ⚡ 强制工作流 (Mandatory Workflow)
+
+每次对话开始编码前，必须按顺序执行：
+
+<phase_1_contextualize>
+1.  **读取进度：** 读取 `project_progress.md`。
+2.  **认领任务：** 获取最高优先级 GitHub Issue。
+3.  **查阅标准 (Updated)：**
+    - **首选标准：** 始终优先查阅 `docs/MM_SRS2.md`，确保技术栈和核心逻辑符合 V1.1 要求。
+    - **补充参考：** 仅当 V1.1 文档对某个业务细节（如具体的计分算法）描述不够详尽时，才查阅 `docs/MM_SRS.md` 作为补充。
+    - **复述：** "当前任务是 Issue #[ID]，我将依据 MM_SRS2.md 第 [X.X] 章进行实现..."
+</phase_1_contextualize>
+
+<phase_2_implementation>
+1.  **环境检查：** 确认 `venv` 已激活。
+2.  **编写代码：** 实现功能。
+3.  **自动化测试：** 编写并运行测试脚本（确保在虚拟环境中运行）。
+</phase_2_implementation>
+
+<phase_3_documentation>
+1.  **提交代码：**
+    - `git add .`
+    - `git commit -m "feat: [任务简述] (Fixes #IssueID)"`
+    - `source .cursor_secrets && git push origin main`
+2.  **记录日志：** 更新 `project_progress.md`，记录 Commit Hash 和下一步计划。
+</phase_3_documentation>
+
+## 异常处理
+- 如果发现未激活虚拟环境，立即停止并激活。
+- 如果 `gh` 命令报错，提示用户检查 `.cursor_secrets`。

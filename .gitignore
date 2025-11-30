@@ -1,0 +1,6 @@
+# Security & Local Env
+.cursor_secrets
+venv/
+.env
+__pycache__/
+node_modules/
