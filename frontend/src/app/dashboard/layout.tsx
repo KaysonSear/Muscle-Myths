@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, LayoutDashboard, Users, Trophy, BarChart3 } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, Users, Trophy, BarChart3, ClipboardList } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -21,6 +21,7 @@ export default function DashboardLayout({
     { href: '/dashboard', label: '仪表盘', icon: LayoutDashboard },
     { href: '/dashboard/athletes', label: '选手管理', icon: Users },
     { href: '/dashboard/events', label: '赛事管理', icon: Trophy },
+    { href: '/dashboard/registrations', label: '报名管理', icon: ClipboardList },
     { href: '/dashboard/analytics', label: '数据分析', icon: BarChart3 },
   ];
 

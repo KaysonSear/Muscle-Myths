@@ -60,3 +60,76 @@ export const getRegistrations = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Get single registration by ID
+// @route   GET /api/registrations/:id
+// @access  Private
+export const getRegistrationById = async (req: Request, res: Response) => {
+  try {
+    const registration = await Registration.findById(req.params.id)
+      .populate('athlete_id', 'name bib_number gender phone nationality')
+      .populate('event_id', 'name date location');
+
+    if (!registration) {
+      res.status(404).json({ message: '未找到该报名记录' });
+      return;
+    }
+
+    res.json(registration);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update a registration
+// @route   PUT /api/registrations/:id
+// @access  Private
+export const updateRegistration = async (req: AuthRequest, res: Response) => {
+  const { categories, services, total_fee, notes, payment_status } = req.body;
+
+  try {
+    const registration = await Registration.findById(req.params.id);
+
+    if (!registration) {
+      res.status(404).json({ message: '未找到该报名记录' });
+      return;
+    }
+
+    // Update fields if provided
+    if (categories !== undefined) registration.categories = categories;
+    if (services !== undefined) registration.services = services;
+    if (total_fee !== undefined) registration.total_fee = total_fee;
+    if (notes !== undefined) registration.notes = notes;
+    if (payment_status !== undefined) registration.payment_status = payment_status;
+
+    const updatedRegistration = await registration.save();
+    
+    // Return populated data
+    const populatedRegistration = await Registration.findById(updatedRegistration._id)
+      .populate('athlete_id', 'name bib_number gender')
+      .populate('event_id', 'name date');
+
+    res.json(populatedRegistration);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a registration
+// @route   DELETE /api/registrations/:id
+// @access  Private
+export const deleteRegistration = async (req: AuthRequest, res: Response) => {
+  try {
+    const registration = await Registration.findById(req.params.id);
+
+    if (!registration) {
+      res.status(404).json({ message: '未找到该报名记录' });
+      return;
+    }
+
+    await registration.deleteOne();
+    res.json({ message: '报名记录已删除' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};

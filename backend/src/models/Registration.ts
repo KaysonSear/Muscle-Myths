@@ -16,6 +16,7 @@ export interface IRegistration extends Document {
     price: number;
   }[];
   total_fee: number;
+  payment_status: 'pending' | 'paid' | 'refunded';
   notes?: string;
 }
 
@@ -40,6 +41,11 @@ const RegistrationSchema = new Schema<IRegistration>(
       },
     ],
     total_fee: { type: Number, required: true },
+    payment_status: { 
+      type: String, 
+      enum: ['pending', 'paid', 'refunded'], 
+      default: 'pending' 
+    },
     notes: { type: String },
   },
   {
