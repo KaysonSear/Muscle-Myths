@@ -100,22 +100,78 @@ export default function NewAthletePage() {
     }
   }, [nationality, form]);
 
+  // 身份证号校验和解析
+  const [idCardParsed, setIdCardParsed] = useState(false);
+  const [idCardError, setIdCardError] = useState<string | null>(null);
+
+  // 验证身份证校验码
+  const validateIdCard = (idNumber: string): boolean => {
+    if (idNumber.length !== 18) return false;
+    
+    const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+    const checkCodes = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
+    
+    let sum = 0;
+    for (let i = 0; i < 17; i++) {
+      sum += parseInt(idNumber.charAt(i)) * weights[i];
+    }
+    
+    const checkCode = checkCodes[sum % 11];
+    return idNumber.charAt(17).toUpperCase() === checkCode;
+  };
+
   // Logic to parse ID card
   useEffect(() => {
-    if (idType === '身份证' && idNumber && idNumber.length === 18) {
-      const birthString = idNumber.substring(6, 14);
-      const year = parseInt(birthString.substring(0, 4));
-      const month = parseInt(birthString.substring(4, 6)) - 1;
-      const day = parseInt(birthString.substring(6, 8));
-      
-      const birthDateObj = new Date(year, month, day);
-      
-      if (!isNaN(birthDateObj.getTime())) {
+    setIdCardParsed(false);
+    setIdCardError(null);
+
+    if (idType === '身份证' && idNumber) {
+      if (idNumber.length === 18) {
+        // 验证身份证格式
+        if (!/^\d{17}[\dXx]$/.test(idNumber)) {
+          setIdCardError('身份证号格式不正确');
+          return;
+        }
+
+        // 验证校验码
+        if (!validateIdCard(idNumber)) {
+          setIdCardError('身份证号校验码不正确');
+          return;
+        }
+
+        const birthString = idNumber.substring(6, 14);
+        const year = parseInt(birthString.substring(0, 4));
+        const month = parseInt(birthString.substring(4, 6)) - 1;
+        const day = parseInt(birthString.substring(6, 8));
+        
+        const birthDateObj = new Date(year, month, day);
+        
+        // 验证日期是否合法
+        if (isNaN(birthDateObj.getTime()) || 
+            birthDateObj.getFullYear() !== year ||
+            birthDateObj.getMonth() !== month ||
+            birthDateObj.getDate() !== day) {
+          setIdCardError('身份证号中的出生日期不正确');
+          return;
+        }
+
+        // 验证日期是否在合理范围内
+        const now = new Date();
+        if (birthDateObj > now || year < 1900) {
+          setIdCardError('身份证号中的出生日期不在合理范围内');
+          return;
+        }
+        
         form.setValue('birthdate', birthDateObj);
         
         // Auto set gender
         const genderCode = parseInt(idNumber.charAt(16));
         form.setValue('gender', genderCode % 2 === 1 ? 'male' : 'female');
+        
+        setIdCardParsed(true);
+        toast.success('已从身份证号自动解析出生日期和性别');
+      } else if (idNumber.length > 0 && idNumber.length < 18) {
+        // 输入中，不显示错误
       }
     }
   }, [idNumber, idType, form]);
@@ -260,7 +316,7 @@ export default function NewAthletePage() {
   }
 
   const isIdCard = idType === '身份证';
-  const isIdValid = isIdCard && idNumber && idNumber.length === 18;
+  const isIdValid = isIdCard && idNumber && idNumber.length === 18 && idCardParsed && !idCardError;
   const isChina = nationality === '中国';
 
   return (
@@ -486,14 +542,34 @@ export default function NewAthletePage() {
                   name="id_number"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormLabel className="font-bold">证件号码</FormLabel>
+                      <FormLabel className="font-bold">
+                        证件号码
+                        {isIdCard && idCardParsed && (
+                          <span className="ml-2 text-xs font-normal text-green-600">
+                            ✓ 已自动解析
+                          </span>
+                        )}
+                      </FormLabel>
                       <FormControl>
                         <Input 
                           {...field} 
-                          placeholder="请输入证件号码"
-                          className="rounded-none border-black focus-visible:ring-black" 
+                          placeholder={isIdCard ? "输入18位身份证号自动解析生日和性别" : "请输入证件号码"}
+                          className={cn(
+                            "rounded-none focus-visible:ring-black",
+                            isIdCard && idCardParsed && "border-green-500 bg-green-50",
+                            isIdCard && idCardError && "border-red-500 bg-red-50",
+                            !idCardParsed && !idCardError && "border-black"
+                          )}
                         />
                       </FormControl>
+                      {isIdCard && idCardError && (
+                        <p className="text-sm text-red-500">{idCardError}</p>
+                      )}
+                      {isIdCard && !idCardParsed && !idCardError && idNumber && idNumber.length < 18 && (
+                        <p className="text-xs text-muted-foreground">
+                          还需输入 {18 - (idNumber?.length || 0)} 位
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
