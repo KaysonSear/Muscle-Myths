@@ -115,9 +115,11 @@ export default function AthletesPage() {
                   <TableCell className="font-mono text-sm text-muted-foreground">{athlete.phone}</TableCell>
                   <TableCell>{athlete.nationality}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" className="rounded-none border-black/10 hover:border-black hover:bg-black hover:text-white transition-colors">
-                      查看详情
-                    </Button>
+                    <Link href={`/dashboard/athletes/${athlete._id}`}>
+                      <Button variant="outline" size="sm" className="rounded-none border-black/10 hover:border-black hover:bg-black hover:text-white transition-colors">
+                        查看详情
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
