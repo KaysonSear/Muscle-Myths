@@ -187,6 +187,31 @@ export default function ScoringPage() {
     return scoresToSum.reduce((sum, s) => sum + s, 0);
   }, []);
 
+  // 获取被去除的最高分和最低分的索引
+  const getExcludedScoreIndices = useCallback((judgeScores: number[]): { minIndex: number; maxIndex: number } | null => {
+    const validScores = judgeScores.filter((s) => s > 0);
+    if (validScores.length < 5) return null;
+
+    // 找到最小值和最大值
+    let minVal = Infinity, maxVal = -Infinity;
+    let minIndex = -1, maxIndex = -1;
+
+    judgeScores.forEach((score, index) => {
+      if (score > 0) {
+        if (score < minVal) {
+          minVal = score;
+          minIndex = index;
+        }
+        if (score > maxVal) {
+          maxVal = score;
+          maxIndex = index;
+        }
+      }
+    });
+
+    return { minIndex, maxIndex };
+  }, []);
+
   // 处理分数输入变化
   const handleScoreChange = (
     athleteId: string,
@@ -569,12 +594,13 @@ export default function ScoringPage() {
                   };
                   const athleteRank = ranks[item.athlete_id._id];
                   const isTied = tiedAthletes.has(item.athlete_id._id);
+                  const excludedIndices = getExcludedScoreIndices(athleteScore.judge_scores);
 
                   return (
                     <tr
                       key={item.athlete_id._id}
                       className={`border-b border-black/10 hover:bg-muted/10 transition-colors ${
-                        isTied ? 'bg-yellow-50' : ''
+                        isTied ? 'bg-yellow-100 animate-pulse' : ''
                       } ${athleteRank?.isChampion ? 'bg-amber-50' : ''}`}
                     >
                       <td className="p-3">
@@ -596,7 +622,9 @@ export default function ScoringPage() {
                             <span className="text-muted-foreground">-</span>
                           )}
                           {isTied && (
-                            <AlertTriangle className="h-3 w-3 text-yellow-600" />
+                            <span className="ml-1 px-1.5 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded animate-pulse">
+                              同分
+                            </span>
                           )}
                         </div>
                       </td>
@@ -606,26 +634,49 @@ export default function ScoringPage() {
                         </span>
                       </td>
                       <td className="p-3 font-medium">{item.athlete_id.name}</td>
-                      {Array.from({ length: judgeCount }, (_, i) => (
-                        <td key={i} className="p-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.5"
-                            value={athleteScore.judge_scores[i] || ''}
-                            onChange={(e) =>
-                              handleScoreChange(
-                                item.athlete_id._id,
-                                i,
-                                e.target.value
-                              )
-                            }
-                            className="w-16 text-center rounded-none border-black/30 focus:border-black"
-                            placeholder="0"
-                          />
-                        </td>
-                      ))}
+                      {Array.from({ length: judgeCount }, (_, i) => {
+                        const isExcludedMin = excludedIndices?.minIndex === i;
+                        const isExcludedMax = excludedIndices?.maxIndex === i;
+                        const isExcluded = isExcludedMin || isExcludedMax;
+                        const scoreValue = athleteScore.judge_scores[i] || 0;
+
+                        return (
+                          <td key={i} className="p-2 relative">
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={scoreValue || ''}
+                                onChange={(e) =>
+                                  handleScoreChange(
+                                    item.athlete_id._id,
+                                    i,
+                                    e.target.value
+                                  )
+                                }
+                                className={`w-16 text-center rounded-none focus:border-black ${
+                                  isExcluded && scoreValue > 0
+                                    ? 'border-red-400 bg-red-50 text-red-600 line-through'
+                                    : 'border-black/30'
+                                }`}
+                                placeholder="0"
+                              />
+                              {isExcluded && scoreValue > 0 && (
+                                <span
+                                  className={`absolute -top-2 -right-2 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                                    isExcludedMin ? 'bg-blue-500 text-white' : 'bg-red-500 text-white'
+                                  }`}
+                                  title={isExcludedMin ? '最低分（已去除）' : '最高分（已去除）'}
+                                >
+                                  {isExcludedMin ? '低' : '高'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
                       <td className="p-3 text-center bg-primary/5">
                         <span className="font-mono font-bold text-lg">
                           {athleteScore.total_score.toFixed(1)}
@@ -640,26 +691,56 @@ export default function ScoringPage() {
         </CardContent>
       </Card>
 
+      {/* 同分警告 */}
+      {tiedAthletes.size > 0 && (
+        <Card className="border-2 border-yellow-500 bg-yellow-50 rounded-none animate-pulse">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-bold text-yellow-800 mb-1">⚠️ 检测到同分情况</h3>
+                <p className="text-sm text-yellow-700">
+                  当前组别有 <span className="font-bold">{tiedAthletes.size}</span> 名选手存在同分，
+                  需要裁判长进行人工判定决定最终名次。同分选手已用黄色高亮标记。
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Legend & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border border-black/20 rounded-none">
           <CardContent className="p-4">
-            <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
               <Users className="h-4 w-4" /> 图例说明
             </h3>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
                 <Crown className="h-4 w-4 text-amber-500" />
-                <span>冠军（最低分）</span>
+                <span>冠军（最低总分）</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-50 border border-yellow-200" />
+                <span className="px-1.5 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded">
+                  同分
+                </span>
                 <span>同分选手（需人工判定）</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  * 去极值计算：去掉最高分和最低分后求和
-                </span>
+              <div className="border-t border-dashed pt-2 mt-2">
+                <p className="text-xs font-bold text-muted-foreground mb-2">去极值标记：</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[8px] font-bold flex items-center justify-center">
+                    低
+                  </span>
+                  <span>最低分（已去除）</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">
+                    高
+                  </span>
+                  <span>最高分（已去除）</span>
+                </div>
               </div>
             </div>
           </CardContent>
