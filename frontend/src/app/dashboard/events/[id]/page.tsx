@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Calendar, MapPin, Trophy, Users, Play } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Users, Play, ListOrdered } from 'lucide-react';
 
 export default function EventDetailPage() {
   const { id } = useParams();
@@ -77,6 +77,11 @@ export default function EventDetailPage() {
           <Button onClick={generateLineup} className="rounded-none bg-secondary hover:bg-secondary/90">
             生成秩序表
           </Button>
+          <Link href={`/dashboard/events/${event._id}/lineup`}>
+            <Button variant="outline" className="rounded-none border-black hover:bg-black hover:text-white">
+              <ListOrdered className="mr-2 h-4 w-4" /> 编辑秩序表
+            </Button>
+          </Link>
           <Link href={`/dashboard/events/${event._id}/scoring`}>
             <Button className="rounded-none bg-primary hover:bg-primary/90">
               <Play className="mr-2 h-4 w-4" /> 开始计分

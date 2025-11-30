@@ -83,3 +83,51 @@ export const getLineup = async (req: Request, res: Response) => {
     res.status(404).json({ message: '未找到秩序表' });
   }
 };
+
+// @desc    Update lineup order
+// @route   PUT /api/lineups/:event_id
+// @access  Private
+export const updateLineup = async (req: AuthRequest, res: Response) => {
+  const { event_id } = req.params;
+  const { lineup: newLineupOrder } = req.body;
+
+  try {
+    const existingLineup = await Lineup.findOne({ event_id });
+    
+    if (!existingLineup) {
+      res.status(404).json({ message: '秩序表不存在' });
+      return;
+    }
+
+    // Update the lineup order
+    existingLineup.lineup = newLineupOrder;
+    await existingLineup.save();
+
+    // Return updated lineup with populated athlete data
+    const updatedLineup = await Lineup.findOne({ event_id })
+      .populate('lineup.athlete_id', 'name bib_number gender');
+
+    res.json(updatedLineup);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete lineup
+// @route   DELETE /api/lineups/:event_id
+// @access  Private
+export const deleteLineup = async (req: AuthRequest, res: Response) => {
+  const { event_id } = req.params;
+
+  try {
+    const result = await Lineup.findOneAndDelete({ event_id });
+    
+    if (result) {
+      res.json({ message: '秩序表已删除' });
+    } else {
+      res.status(404).json({ message: '秩序表不存在' });
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
